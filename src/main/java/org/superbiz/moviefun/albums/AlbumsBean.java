@@ -16,6 +16,7 @@
  */
 package org.superbiz.moviefun.albums;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,10 +28,10 @@ import java.util.List;
 @Repository
 public class AlbumsBean {
 
-    @PersistenceContext
+    @PersistenceContext(unitName = "albums")
     private EntityManager entityManager;
 
-    @Transactional
+    @Transactional("albumsTransactionManager")
     public void addAlbum(Album album) {
         entityManager.persist(album);
     }
