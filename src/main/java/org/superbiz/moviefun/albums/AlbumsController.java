@@ -1,20 +1,28 @@
 package org.superbiz.moviefun.albums;
 
 import org.apache.tika.Tika;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.superbiz.moviefun.Blob;
+import org.superbiz.moviefun.BlobStore;
+import org.superbiz.moviefun.FileStore;
+import org.superbiz.moviefun.S3Store;
+import sun.misc.IOUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.lang.ClassLoader.getSystemResource;
 import static java.lang.String.format;
@@ -25,6 +33,14 @@ import static java.nio.file.Files.readAllBytes;
 public class AlbumsController {
 
     private final AlbumsBean albumsBean;
+
+    Tika tika = new Tika();
+
+    @Autowired
+    private FileStore fileStore;
+
+    @Autowired
+    private BlobStore cloudS3BlobStore;
 
     public AlbumsController(AlbumsBean albumsBean) {
         this.albumsBean = albumsBean;
@@ -61,13 +77,8 @@ public class AlbumsController {
 
 
     private void saveUploadToFile(@RequestParam("file") MultipartFile uploadedFile, File targetFile) throws IOException {
-        targetFile.delete();
-        targetFile.getParentFile().mkdirs();
-        targetFile.createNewFile();
 
-        try (FileOutputStream outputStream = new FileOutputStream(targetFile)) {
-            outputStream.write(uploadedFile.getBytes());
-        }
+        cloudS3BlobStore.put(new Blob(targetFile.getName(), uploadedFile.getInputStream(), tika.detect(uploadedFile.getInputStream())));
     }
 
     private HttpHeaders createImageHttpHeaders(Path coverFilePath, byte[] imageBytes) throws IOException {
@@ -79,19 +90,31 @@ public class AlbumsController {
         return headers;
     }
 
-    private File getCoverFile(@PathVariable long albumId) {
-        String coverFileName = format("covers/%d", albumId);
-        return new File(coverFileName);
+    private File getCoverFile(@PathVariable long albumId) throws IOException {
+
+
+
+        Optional<Blob> blobOptional = cloudS3BlobStore.get(Long.toString(albumId));
+        File targetFile;
+        if(blobOptional.isPresent()) {
+            targetFile = new File(blobOptional.get().name);
+            try (FileOutputStream outputStream = new FileOutputStream(targetFile)) {
+                org.apache.tika.io.IOUtils.copy(blobOptional.get().inputStream, outputStream);
+            }
+        }else{
+            targetFile = new File("covers/"+Long.toString(albumId));
+        }
+        return targetFile;
     }
 
-    private Path getExistingCoverPath(@PathVariable long albumId) throws URISyntaxException {
+    private Path getExistingCoverPath(@PathVariable long albumId) throws URISyntaxException, IOException {
         File coverFile = getCoverFile(albumId);
         Path coverFilePath;
 
         if (coverFile.exists()) {
             coverFilePath = coverFile.toPath();
         } else {
-            coverFilePath = Paths.get(getSystemResource("default-cover.jpg").toURI());
+            coverFilePath = Paths.get(this.getClass().getClassLoader().getResource("default-cover.jpg").toURI());
         }
 
         return coverFilePath;
