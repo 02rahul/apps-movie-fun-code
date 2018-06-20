@@ -30,7 +30,7 @@ public class Application {
             @Value("${vcap.services.moviefun-s3-service.credentials.access_key_id}") String s3AccessKey,
             @Value("${vcap.services.moviefun-s3-service.credentials.secret_access_key}") String s3SecretKey,
             @Value("${vcap.services.moviefun-s3-service.credentials.bucket}") String s3BucketName,
-            @Value("${vcap.services.moviefun-s3-service.credentials.s3_endpointurl}") String s3EndpointUrl
+            @Value("${vcap.services.moviefun-s3-service.credentials.s3_endpointurl:}") String s3EndpointUrl
     ) {
         return getS3BlobStore(s3AccessKey, s3SecretKey, s3BucketName, s3EndpointUrl);
     }
