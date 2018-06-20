@@ -1,0 +1,8 @@
+applications:
+- name: moviefun
+  path: ./target/moviefun.war
+  services:
+  - movies-mysql
+  - moviefun-s3-service
+  - paper-trail
+  - rabbit
